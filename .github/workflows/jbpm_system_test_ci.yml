@@ -1,0 +1,45 @@
+# Runs jbpm-system-test module tests periodically
+
+name: jBPM System Test CI
+
+on:
+  # push:
+  # schedule:
+  #  - cron:  '10 * * * *'
+  workflow_dispatch:
+    inputs:
+      kieversion:
+        description: 'kie version'
+        required: false
+        default: '7.57.0.Final'
+
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  jbpm-system-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+            
+      # See https://docs.github.com/en/actions/guides/building-and-testing-java-with-maven#caching-dependencies
+      - name: Cache Maven packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      # Builds the module and runs tests 
+      - name: Build jbpm-system-test with Maven
+        run: |
+             mvn -B clean install -f jbpm-system-test -Dversion.org.kie=${{ github.event.inputs.kieversion }} 
