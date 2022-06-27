@@ -41,6 +41,9 @@ public class KieServerContainer extends GenericContainer<KieServerContainer>{
            .withFileFromFile("etc/jbpm-custom.cli", new File("src/test/resources/etc/jbpm-custom-node1.cli"))
            .withFileFromClasspath("etc/kjars", "etc/kjars")
            .withFileFromClasspath("Dockerfile", "etc/Dockerfile")
+           //.withFileFromClasspath("etc/jbpm-flow-7.70.0.Final.jar", "etc/jbpm-flow-7.70.0.Final.jar")
+           //.withFileFromClasspath("etc/jbpm-runtime-manager-7.70.0.Final.jar", "etc/jbpm-runtime-manager-7.70.0.Final.jar")
+           .withFileFromClasspath("etc/jbpm-services-ejb-timer-7.70.0.Final.jar", "etc/jbpm-services-ejb-timer-7.70.0.Final.jar")
            .withFileFromFile("etc/drivers/postgresql.jar", new File("target/drivers").listFiles()[0]));
     
       withEnv("START_SCRIPT", args.get("START_SCRIPT"));

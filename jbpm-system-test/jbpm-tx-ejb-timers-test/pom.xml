@@ -55,7 +55,8 @@
               <goal>wget</goal>
             </goals>
             <configuration>
-              <url>http://raw.githubusercontent.com/kiegroup/jbpm/${version.org.kie}/jbpm-db-scripts/src/main/resources/db/ddl-scripts/postgresql/postgresql-jbpm-schema.sql</url>
+              <!--url>http://raw.githubusercontent.com/kiegroup/jbpm/${version.org.kie}/jbpm-db-scripts/src/main/resources/db/ddl-scripts/postgresql/postgresql-jbpm-schema.sql</url-->
+              <url>https://raw.githubusercontent.com/elguardian/jbpm/JBPM-10087/jbpm-db-scripts/src/main/resources/db/ddl-scripts/postgresql/postgresql-jbpm-schema.sql</url>
               <outputFileName>postgresql-jbpm-schema.sql</outputFileName>
               <unpack>false</unpack>
               <outputDirectory>${project.build.directory}/postgresql</outputDirectory>

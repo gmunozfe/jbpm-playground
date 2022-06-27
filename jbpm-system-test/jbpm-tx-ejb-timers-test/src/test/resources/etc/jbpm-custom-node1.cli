@@ -9,7 +9,13 @@ embed-server --server-config=standalone-full-kie-server.xml
 ##/subsystem=logging/logger=org.wildfly.security/:add(level=TRACE,use-parent-handlers=true)
 ##/subsystem=logging/logger=org.wildfly.elytron/:add(level=TRACE,use-parent-handlers=true)
 ##/subsystem=logging/logger=org.wildfly.extension.undertow/:add(level=TRACE,use-parent-handlers=true)
+
+/subsystem=logging/logger=org.hibernate.SQL/:add(level=DEBUG,use-parent-handlers=true)
+/subsystem=logging/logger=org.hibernate.type.descriptor.sql/:add(level=TRACE,use-parent-handlers=true)
+
 /subsystem=logging/console-handler=CONSOLE:write-attribute(name=level, value=TRACE)
+
+
 ##
 
 ## Dump http requests

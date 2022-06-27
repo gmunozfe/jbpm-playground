@@ -22,7 +22,9 @@ import static org.junit.Assert.assertTrue;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -57,6 +59,7 @@ import com.zaxxer.hikari.HikariDataSource;
 class TxEJBTimerSystemTest {
     
     public static final String SELECT_COUNT_FROM_JBOSS_EJB_TIMER = "select count(*) from jboss_ejb_timer";
+    public static final String SELECT_TIMER = "select * from jboss_ejb_timer";
     public static final String ARTIFACT_ID = "tx-ejb-sample";
     public static final String GROUP_ID = "org.kie.server.testing";
     public static final String VERSION = "1.0.0";
@@ -138,10 +141,10 @@ class TxEJBTimerSystemTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"timer-fail-subprocess,1", "boundary-subprocess,2", "boundary-gateway-subprocess,1"})
+    @CsvSource({"timer-fail-subprocess,1"/*, "boundary-subprocess,2", "boundary-gateway-subprocess,1"*/})
     void testEJBTimerWithRollback(String processId, int expectedTimersAfterRollback) throws InterruptedException, SQLException {
-        Long processInstanceId = processClient.startProcess(containerId, processId);
-        
+        //Long processInstanceId = processClient.startProcess(containerId, processId, Collections.singletonMap("timerDuration","12000s"));
+    	Long processInstanceId = processClient.startProcess(containerId, processId);
         assertTrue(processInstanceId>0);
         
         logger.info("Sleeping 1 s");
@@ -150,15 +153,26 @@ class TxEJBTimerSystemTest {
         assertEquals("there should be just one timer at the table",
                       1, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
         
+        
         logger.info("Sending signal");
         processClient.signal(containerId, "Signal", null);
+        
+        //logger.info("ABORT !!!");
+        
+        //processClient.abortProcessInstance(containerId, processInstanceId);
         
         logger.info("Sleeping 10 s");
         Thread.sleep(10000);
         
+        logger.info("After Sleeping 15 s");
+        //Thread.sleep(Integer.MAX_VALUE);
         assertEquals("there should be "+expectedTimersAfterRollback+" timer at the table after the rollback",
                       expectedTimersAfterRollback, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
+        
+
     }
+    
+    
     
     private static void createContainer(KieServicesClient client) {
         ReleaseId releaseId = new ReleaseId(GROUP_ID, ARTIFACT_ID, VERSION);
