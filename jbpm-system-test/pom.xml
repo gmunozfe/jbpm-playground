@@ -8,7 +8,7 @@
     <groupId>org.kie</groupId>
     <artifactId>kie-parent</artifactId>
     <!-- it must be a final one as the image must be on dockerhub -->
-    <version>7.69.0.Final</version>
+    <version>7.67.0.Final</version>
   </parent>
   
   <groupId>org.jbpm</groupId>
@@ -167,6 +167,7 @@
     <module>jbpm-springboot-mssql-test</module>
     <module>jbpm-ldap-concurrency-test</module>
     <module>jbpm-smartrouter-test</module>
+    <module>jbpm-failover-jobs-test</module>
   </modules>
 
 </project>
