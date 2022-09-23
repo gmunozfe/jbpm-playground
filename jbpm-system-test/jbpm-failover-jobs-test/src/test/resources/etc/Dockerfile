@@ -24,11 +24,10 @@ COPY --from=builder /root/.m2 /opt/jboss/.m2
 ENV KIE_SERVER_PROFILE standalone
 
 ENV JAVA_OPTS -Xms256m -Xmx2048m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=512m -Djava.net.preferIPv4Stack=true -Dfile.encoding=UTF-8 \
- -Dorg.uberfire.domain=other -Djgroups.bind_addr=$HOSTNAME -Dorg.kie.controller.ping.alive.timeout=5000000 -Dorg.kie.server.controller=http://full-node1:8080/business-central/rest/controller -Dorg.kie.server.controller.user=kieserver -Dorg.kie.server.controller.pwd=kieserver1! -Dorg.jbpm.ejb.timer.local.cache=true -Dorg.jbpm.ejb.timer.tx=true -Dorg.kie.jbpm.timer.retry.limit=1 -Dorg.kie.jbpm.timer.retry.interval=100
-
-#jgroups.bind_addr=$DOMAIN_IP
-#-Djgroups.bind_addr=127.0.0.1
-#-Dorg.kie.controller.ping.alive.timeout=5000000
+ -Dorg.uberfire.domain=other \
+ -Djgroups.bind_addr=$HOSTNAME -Dorg.kie.controller.ping.alive.timeout=5000000 -Dorg.kie.server.controller=http://full-node1:8080/business-central/rest/controller \
+ -Dorg.kie.server.controller.user=kieserver -Dorg.kie.server.controller.pwd=kieserver1! -Dorg.jbpm.ejb.timer.local.cache=true -Dorg.jbpm.ejb.timer.tx=true \
+ -Dorg.kie.jbpm.timer.retry.limit=1 -Dorg.kie.jbpm.timer.retry.interval=100
 
 COPY etc/drivers /etc/drivers/
 ADD etc/jbpm-custom.cli $JBOSS_HOME/bin/jbpm-custom.cli
@@ -67,5 +66,8 @@ RUN $JBOSS_HOME/bin/jboss-cli.sh --file=$JBOSS_HOME/bin/jbpm-custom.cli && \
 rm -rf $JBOSS_HOME/standalone/configuration/standalone_xml_history/current
 
 WORKDIR $JBOSS_HOME/bin/
+
+#Add a management user for JMX access
+RUN $JBOSS_HOME/bin/add-user.sh jmxUser jmxPassword1!
 
 CMD "sh" "-c" "./${START_SCRIPT}"

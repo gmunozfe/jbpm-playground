@@ -51,12 +51,13 @@ batch
 /subsystem=infinispan/cache-container=jbpm/transport=TRANSPORT:add(lock-timeout=60000)
 /subsystem=infinispan/cache-container=jbpm/replicated-cache=nodes:add()
 /subsystem=infinispan/cache-container=jbpm/replicated-cache=nodes/transaction=TRANSACTION:add(mode=BATCH)
+/subsystem=infinispan/cache-container=jbpm/replicated-cache=nodes:write-attribute(name=statistics-enabled,value=true)
 /subsystem=infinispan/cache-container=jbpm/replicated-cache=jobs:add()
 /subsystem=infinispan/cache-container=jbpm/replicated-cache=jobs/transaction=TRANSACTION:add(mode=BATCH)
+/subsystem=infinispan/cache-container=jbpm/replicated-cache=jobs:write-attribute(name=statistics-enabled,value=true)
 run-batch
 
 /interface=private:add(inet-address=${jboss.bind.address:127.0.0.1})
-
 
 # Adding postgresql driver as a core module
 module add --name=com.postgresql --resources=/etc/drivers/postgresql.jar --dependencies=javax.api,javax.transaction.api

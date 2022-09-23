@@ -17,18 +17,23 @@
 package org.kie.samples.integration;
 
 import static java.util.Collections.singletonMap;
-
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.testcontainers.containers.output.OutputFrame.OutputType.STDOUT;
 import static org.awaitility.Awaitility.await;
+import static org.awaitility.Duration.FIVE_SECONDS;
 import static org.awaitility.Duration.ONE_MINUTE;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.io.FileUtils;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXServiceURL;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -55,15 +60,17 @@ import com.github.dockerjava.api.DockerClient;
 @Testcontainers(disabledWithoutDocker=true)
 public class FailoverJobsSystemTest {
     
-    public static final String FAILOVER_JOBS_PROCESS = "failover_jobs_process";
-    public static final String PREFIX_CLI_PATH = "src/test/resources/etc/jbpm-custom-";
-    public static final String ARTIFACT_ID = "failover-jobs-sample";
-    public static final String GROUP_ID = "org.kie.server.testing";
-    public static final String VERSION = "1.0.0";
-    public static final String ALIAS = "-alias";
+    private static final String JMX_PASSWORD = "jmxPassword1!";
+    private static final String JMX_USER = "jmxUser";
+    private static final String CLUSTER_CACHE_STATS_OBJECT = "org.wildfly.clustering.infinispan:type=Cache,name=\"jobs(repl_sync)\",manager=\"jbpm\",component=ClusterCacheStats";
+    private static final String FAILOVER_JOBS_PROCESS = "failover_jobs_process";
+    private static final String ARTIFACT_ID = "failover-jobs-sample";
+    private static final String GROUP_ID = "org.kie.server.testing";
+    private static final String VERSION = "1.0.0";
+    private static final String ALIAS = "-alias";
     
-    public static final String DEFAULT_USER = "kieserver";
-    public static final String DEFAULT_PASSWORD = "kieserver1!";
+    private static final String DEFAULT_USER = "kieserver";
+    private static final String DEFAULT_PASSWORD = "kieserver1!";
 
     public static String containerId = GROUP_ID+":"+ARTIFACT_ID+":"+VERSION;
 
@@ -106,9 +113,9 @@ public class FailoverJobsSystemTest {
     private static WaitingConsumer consumerCluster;
     
     @BeforeClass
-    public static void setup() {
-        logger.info("KIE SERVER 1 started at port "+kieServer1.getKiePort());
-        logger.info("KIE SERVER 2 started at port "+kieServer2.getKiePort());
+    public static void setup() throws IOException, MalformedObjectNameException {
+        logger.info("KIE SERVER 1 started "+kieServer1.getContainerIpAddress()+" ; port "+kieServer1.getKiePort()+" ; jmx:"+kieServer1.getJMXPort());
+        logger.info("KIE SERVER 2 started "+kieServer2.getContainerIpAddress()+" ; port "+kieServer2.getKiePort()+" ; jmx:"+kieServer2.getJMXPort());
         logger.info("postgresql started at "+postgreSQLContainer.getJdbcUrl());
         
         ksClient1 = authenticate(kieServer1.getKiePort(), DEFAULT_USER, DEFAULT_PASSWORD);
@@ -122,6 +129,7 @@ public class FailoverJobsSystemTest {
         consumerCluster = new WaitingConsumer();
         kieServer1.followOutput(consumerCluster, STDOUT);
         kieServer2.followOutput(consumerCluster, STDOUT);
+        
     }
 
     @AfterClass
@@ -139,10 +147,18 @@ public class FailoverJobsSystemTest {
         startProcessInNode2(FAILOVER_JOBS_PROCESS, 2000);
         startProcessInNode2(FAILOVER_JOBS_PROCESS, 20000);
         
+        assertEquals("there should be 3 put operations in the cache before job execution and removal", 
+                3, (long) getJMXAttribute(kieServer2.getJMXPort(), CLUSTER_CACHE_STATS_OBJECT, "stores"));
+        
         logger.info("Waiting for job 1 completion ");
-        await().atMost(ONE_MINUTE).until(() -> kieServer2.getLogs(STDOUT).contains("Request job 1 has been completed"));
+        await().atMost(ONE_MINUTE)
+          .until(() -> kieServer2.getLogs(STDOUT).contains("Request job 1 has been completed"));
         
         assertTrue(kieServer2.getLogs(STDOUT).contains("Removing executed job RequestInfo{id=1"));
+        
+        //There should be 4 put operations in the cache after job execution and removal"
+        await().atMost(FIVE_SECONDS)
+          .until(() -> (long) getJMXAttribute(kieServer2.getJMXPort(), CLUSTER_CACHE_STATS_OBJECT, "stores") == 4);
         
         logger.info("****************************  KieServer 2 stopping .... ***********************************************");
         kieServer2.stop();
@@ -151,6 +167,23 @@ public class FailoverJobsSystemTest {
         await().atMost(ONE_MINUTE).until(() -> kieServer1.getLogs(STDOUT).contains("Request job 2 has been completed"));
         
         assertTrue(kieServer1.getLogs(STDOUT).contains("Removing executed job RequestInfo{id=2"));
+        
+    }
+
+    private Object getJMXAttribute(int jmxPort, String objectName, String attribute) throws Exception {
+        JMXConnector jmxConnector = null;
+        try {
+          @SuppressWarnings("serial")
+          Map<String, String[]>   environment = new HashMap<String, String[]>() {{
+            put(JMXConnector.CREDENTIALS, new String[] {JMX_USER, JMX_PASSWORD});
+          }};
+          JMXServiceURL url = new JMXServiceURL(String.format("service:jmx:remote+http://localhost:%s", jmxPort));
+          jmxConnector = JMXConnectorFactory.connect(url, environment);
+          
+          return jmxConnector.getMBeanServerConnection().getAttribute(new ObjectName(objectName), attribute);
+        } finally {
+          jmxConnector.close();
+        }
     }
     
     
@@ -162,7 +195,7 @@ public class FailoverJobsSystemTest {
     }
 
     private static KieServicesClient authenticate(int port, String user, String password) {
-        String serverUrl = "http://localhost:" + port + "/kie-server/services/rest/server";
+        String serverUrl = String.format("http://localhost:%s/kie-server/services/rest/server", port);
         KieServicesConfiguration configuration = KieServicesFactory.newRestConfiguration(serverUrl, user, password);
         
         configuration.setTimeout(60000);

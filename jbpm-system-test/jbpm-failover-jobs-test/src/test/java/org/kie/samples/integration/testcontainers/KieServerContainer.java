@@ -31,8 +31,11 @@ import org.testcontainers.images.builder.ImageFromDockerfile;
 public class KieServerContainer extends GenericContainer<KieServerContainer>{
 
     private static final int KIE_PORT = 8080;
+    private static final int JMX_PORT = 9990;
 
     private static Logger logger = LoggerFactory.getLogger(KieServerContainer.class);
+    
+    private final String serverName;
 
     public KieServerContainer(String nodeName, Network network, Map<String,String> args) {
       super( new ImageFromDockerfile()
@@ -48,19 +51,29 @@ public class KieServerContainer extends GenericContainer<KieServerContainer>{
            .withFileFromClasspath("etc/kie-server-jms-7.67.1-SNAPSHOT.jar", "etc/kie-server-jms-7.67.1-SNAPSHOT.jar")
            .withFileFromFile("etc/drivers/postgresql.jar", new File("target/drivers").listFiles()[0]));
     
-      String serverName = args.get("SERVER_"+nodeName)+"-"+nodeName;
+      serverName = args.get("SERVER_"+nodeName)+"-"+nodeName;
 
       withEnv("START_SCRIPT", args.get("START_SCRIPT_"+nodeName));
       withEnv("KIE_SERVER_ID", serverName);
       withEnv("KIE_SERVER_LOCATION", "http://"+serverName+":"+KIE_PORT+"/kie-server/services/rest/server");
+      //Need to bind management interface for JMX connection as well
+      withEnv("JBOSS_BIND_ADDRESS", "0.0.0.0 -bmanagement 0.0.0.0 ");
       withNetwork(network);
       withNetworkAliases(serverName);
-      withExposedPorts(KIE_PORT);
+      withExposedPorts(KIE_PORT, JMX_PORT);
       withLogConsumer(new Slf4jLogConsumer(logger).withPrefix("KIE-LOG-"+nodeName));
       waitingFor(Wait.forLogMessage(".*WildFly.*started in.*", 1).withStartupTimeout(Duration.ofMinutes(15L)));
     }
     
     public Integer getKiePort() {
         return this.getMappedPort(KIE_PORT);
+    }
+    
+    public Integer getJMXPort() {
+        return this.getMappedPort(JMX_PORT);
+    }
+    
+    public String getServerName() {
+        return serverName;
     }
 }
