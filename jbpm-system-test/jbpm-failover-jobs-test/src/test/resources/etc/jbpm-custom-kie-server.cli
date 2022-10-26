@@ -4,6 +4,8 @@ embed-server --server-config=standalone-full-kie-server.xml
 /subsystem=logging/logger=org.kie.server.services.jbpm.cluster/:add(level=TRACE,use-parent-handlers=true)
 /subsystem=logging/console-handler=CONSOLE:write-attribute(name=level, value=TRACE)
 
+/subsystem=io/worker=default/:write-attribute(name=task-max-threads,value=1000)
+
 ## Configuring failover for jobs 
 /extension=org.jboss.as.clustering.jgroups:add
 

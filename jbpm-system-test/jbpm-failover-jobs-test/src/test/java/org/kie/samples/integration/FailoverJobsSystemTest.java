@@ -26,19 +26,29 @@ import static org.awaitility.Duration.FIVE_SECONDS;
 import static org.awaitility.Duration.ONE_MINUTE;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.kie.samples.integration.testcontainers.KieServerContainer;
 import org.kie.server.api.marshalling.MarshallingFormat;
 import org.kie.server.api.model.KieContainerResource;
@@ -50,14 +60,17 @@ import org.kie.server.client.ProcessServicesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.WaitingConsumer;
+import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.github.dockerjava.api.DockerClient;
 
 @Testcontainers(disabledWithoutDocker=true)
+//@Execution(ExecutionMode.CONCURRENT)
 public class FailoverJobsSystemTest {
     
     private static final String JMX_PASSWORD = "jmxPassword1!";
@@ -87,23 +100,24 @@ public class FailoverJobsSystemTest {
         args.put("SERVER_node2", System.getProperty("org.kie.samples.server.node2"));
     }
 
-    @ClassRule
     public static Network network = Network.newNetwork();
     
-    @ClassRule
+    @Container
     public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>(System.getProperty("org.kie.samples.image.postgresql","postgres:latest"))
                                         .withDatabaseName("rhpamdatabase")
                                         .withUsername("rhpamuser")
                                         .withPassword("rhpampassword")
-                                        .withCommand("-c max_prepared_transactions=100")
+                                        .withFileSystemBind("src/test/resources/etc/postgresql", "/docker-entrypoint-initdb.d",
+                                                BindMode.READ_ONLY)
+                                        .withCommand("-c max_prepared_transactions=500")
                                         .withNetwork(network)
                                         .withNetworkAliases("postgresql11");
 
-    @ClassRule
-    public static KieServerContainer kieServer1 = new KieServerContainer("node1", network, args);
+    @Container
+    public static KieServerContainer kieServer1 = new KieServerContainer("node1", network, args).dependsOn(postgreSQLContainer);
     
-    @ClassRule
-    public static KieServerContainer kieServer2 = new KieServerContainer("node2", network, args);
+    @Container
+    public static KieServerContainer kieServer2 = new KieServerContainer("node2", network, args).dependsOn(postgreSQLContainer);
     
     private static KieServicesClient ksClient1;
     private static KieServicesClient ksClient2;
@@ -112,7 +126,8 @@ public class FailoverJobsSystemTest {
     
     private static WaitingConsumer consumerCluster;
     
-    @BeforeClass
+    
+    @BeforeAll
     public static void setup() throws IOException, MalformedObjectNameException {
         logger.info("KIE SERVER 1 started "+kieServer1.getContainerIpAddress()+" ; port "+kieServer1.getKiePort()+" ; jmx:"+kieServer1.getJMXPort());
         logger.info("KIE SERVER 2 started "+kieServer2.getContainerIpAddress()+" ; port "+kieServer2.getKiePort()+" ; jmx:"+kieServer2.getJMXPort());
@@ -132,44 +147,55 @@ public class FailoverJobsSystemTest {
         
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDown() throws Exception {
-        ksClient1.disposeContainer(containerId);
+        //ksClient1.disposeContainer(containerId);
         DockerClient docker = DockerClientFactory.instance().client();
         docker.listImagesCmd().withLabelFilter("autodelete=true").exec().stream()
          .filter(c -> c.getId() != null)
          .forEach(c -> docker.removeImageCmd(c.getId()).withForce(true).exec());
     }
 
+    
+    //@RepeatedTest(10000)
     @Test
-    @DisplayName("test completed async jobs are removed from cache and not retrieved by second node in the cluster when first goes down")
-    public void testAsyncJobInClusterWhenNodeGoesDown() throws Exception {
-        startProcessInNode2(FAILOVER_JOBS_PROCESS, 2000);
-        startProcessInNode2(FAILOVER_JOBS_PROCESS, 20000);
+    public void test2() throws Exception {
+    	 ExecutorService pool = Executors.newFixedThreadPool(100);
+
+         
+    	List<Callable<Long>> callables = new ArrayList<>();
+    	for (int i=0;i<1000;i++)
+    	    callables.add(submitRequest());
+
+    	List<Future<Long>> results = pool.invokeAll(callables);
         
-        assertEquals("there should be 3 put operations in the cache before job execution and removal", 
-                3, (long) getJMXAttribute(kieServer2.getJMXPort(), CLUSTER_CACHE_STATS_OBJECT, "stores"));
-        
-        logger.info("Waiting for job 1 completion ");
-        await().atMost(ONE_MINUTE)
-          .until(() -> kieServer2.getLogs(STDOUT).contains("Request job 1 has been completed"));
-        
-        assertTrue(kieServer2.getLogs(STDOUT).contains("Removing executed job RequestInfo{id=1"));
-        
-        //There should be 4 put operations in the cache after job execution and removal"
-        await().atMost(FIVE_SECONDS)
-          .until(() -> (long) getJMXAttribute(kieServer2.getJMXPort(), CLUSTER_CACHE_STATS_OBJECT, "stores") == 4);
-        
-        logger.info("****************************  KieServer 2 stopping .... ***********************************************");
-        kieServer2.stop();
-        
-        logger.info("Waiting for job 2 completion ");
-        await().atMost(ONE_MINUTE).until(() -> kieServer1.getLogs(STDOUT).contains("Request job 2 has been completed"));
-        
-        assertTrue(kieServer1.getLogs(STDOUT).contains("Removing executed job RequestInfo{id=2"));
-        
+
+        //startProcessInNode2(FAILOVER_JOBS_PROCESS, 20000);
+
+    }
+    
+    
+    
+    private Callable submitRequest() {
+        return new Callable() {
+
+            @Override
+            public Long call() {
+
+            	return startProcessInNode2(FAILOVER_JOBS_PROCESS, getRandomTimeout(20000,50000));
+            }
+        };
+    }
+    
+    public static int getRandomTimeout(int min, int max) {
+        Random random = new Random();
+        int timeout = random.ints(min, max).findFirst().getAsInt();
+        logger.debug("random timeout is {} ms", timeout);
+        return timeout;
     }
 
+
+    
     private Object getJMXAttribute(int jmxPort, String objectName, String attribute) throws Exception {
         JMXConnector jmxConnector = null;
         try {
@@ -206,6 +232,7 @@ public class FailoverJobsSystemTest {
     private Long startProcessInNode2(String processName, int delay) {
         Long processInstanceId = processClient2.startProcess(containerId, processName, singletonMap("delay", delay));
         assertNotNull(processInstanceId);
+        logger.info("@@@# Started process "+processName+" ["+processInstanceId+"] with delay "+delay+" in node 2");
         return processInstanceId;
     }
 }

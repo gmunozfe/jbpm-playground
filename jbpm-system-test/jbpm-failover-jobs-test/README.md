@@ -19,8 +19,4 @@ Once you cloned the repository locally all you need to do is execute the followi
 mvn clean install
 ```
 
-Once you cloned the repository locally all you need to do is execute the following Maven build (for cluster scenarios):
 
-```
-mvn clean install
-```

@@ -27,7 +27,7 @@ ENV JAVA_OPTS -Xms256m -Xmx2048m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=512m
  -Dorg.uberfire.domain=other \
  -Djgroups.bind_addr=$HOSTNAME -Dorg.kie.controller.ping.alive.timeout=5000000 -Dorg.kie.server.controller=http://full-node1:8080/business-central/rest/controller \
  -Dorg.kie.server.controller.user=kieserver -Dorg.kie.server.controller.pwd=kieserver1! -Dorg.jbpm.ejb.timer.local.cache=true -Dorg.jbpm.ejb.timer.tx=true \
- -Dorg.kie.jbpm.timer.retry.limit=1 -Dorg.kie.jbpm.timer.retry.interval=100
+ -Dorg.kie.jbpm.timer.retry.limit=1 -Dorg.kie.jbpm.timer.retry.interval=100 -Dorg.kie.executor.pool.size=1000
 
 COPY etc/drivers /etc/drivers/
 ADD etc/jbpm-custom.cli $JBOSS_HOME/bin/jbpm-custom.cli

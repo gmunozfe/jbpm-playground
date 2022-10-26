@@ -16,7 +16,6 @@
   <description>System tests using clustered Failover Jobs</description>
 
   <properties>
-    <maven-surefire-plugin.version>2.21.0</maven-surefire-plugin.version>
     <wildfly.version>23.0.2.Final</wildfly.version>
   </properties>
 
@@ -63,9 +62,16 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <!-- this downgrade is needed to make it run with junit 4 -->
-        <version>${maven-surefire-plugin.version}</version>
-        <configuration>
+	<configuration>
+          <properties>
+            <configurationParameters>
+                junit.jupiter.execution.parallel.enabled = true
+		junit.jupiter.execution.parallel.mode.default = concurrent
+		junit.jupiter.execution.parallel.mode.classes.default = concurrent
+		junit.jupiter.execution.parallel.config.strategy=fixed
+		junit.jupiter.execution.parallel.config.fixed.parallelism=200 
+            </configurationParameters>
+          </properties>
           <systemPropertyVariables>
             <org.kie.samples.image.node1>quay.io/kiegroup/jbpm-server-full:${version.org.kie}</org.kie.samples.image.node1>
             <org.kie.samples.image.node2>quay.io/kiegroup/kie-server-showcase:${version.org.kie}</org.kie.samples.image.node2>

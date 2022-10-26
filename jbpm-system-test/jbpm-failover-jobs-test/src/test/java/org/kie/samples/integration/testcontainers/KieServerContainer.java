@@ -47,6 +47,7 @@ public class KieServerContainer extends GenericContainer<KieServerContainer>{
            .withFileFromClasspath("Dockerfile", "etc/Dockerfile")
            .withFileFromClasspath("etc/jboss-deployment-structure.xml", "etc/jboss-deployment-structure.xml")
            .withFileFromClasspath("etc/kie-server-services-jbpm-cluster-7.67.0.Final.jar", "etc/kie-server-services-jbpm-cluster-7.67.0.Final.jar")
+           //.withFileFromClasspath("etc/kie-server-services-jbpm-cluster-7.67.0.Final.jar", "etc/kie-server-services-jbpm-cluster-7.67.1-SNAPSHOT.jar")
            //Patch with the fix
            .withFileFromClasspath("etc/kie-server-jms-7.67.1-SNAPSHOT.jar", "etc/kie-server-jms-7.67.1-SNAPSHOT.jar")
            .withFileFromFile("etc/drivers/postgresql.jar", new File("target/drivers").listFiles()[0]));
