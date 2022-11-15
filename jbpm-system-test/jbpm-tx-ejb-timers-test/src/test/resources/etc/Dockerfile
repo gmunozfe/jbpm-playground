@@ -24,6 +24,20 @@ ENV KIE_SERVER_PROFILE standalone
 COPY etc/drivers /etc/drivers/
 ADD etc/jbpm-custom.cli $JBOSS_HOME/bin/jbpm-custom.cli
 
+
+RUN rm $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-services-ejb-timer-7.74.*.jar
+ADD etc/jbpm-services-ejb-timer-7.74.0.Final.jar $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-services-ejb-timer-7.74.0.Final.jar
+
+RUN rm $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-flow-7.74.*.jar
+ADD etc/jbpm-flow-7.74.0.Final.jar $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-flow-7.74.0.Final.jar
+
+RUN rm $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-persistence-jpa-7.74.*.jar
+ADD etc/jbpm-persistence-jpa-7.74.0.Final.jar $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-persistence-jpa-7.74.0.Final.jar
+
+RUN rm $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-runtime-manager-7.74.*.jar
+ADD etc/jbpm-runtime-manager-7.74.0.Final.jar $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-runtime-manager-7.74.0.Final.jar
+
+
 USER root
 
 RUN chmod +x $JBOSS_HOME/bin/jboss-cli.sh

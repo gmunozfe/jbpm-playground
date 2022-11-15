@@ -69,6 +69,7 @@ public class ClusteredEJBTimerSystemTest {
     public static final String SELECT_PARTITION_NAME_FROM_JBOSS_EJB_TIMER = "select partition_name from jboss_ejb_timer";
     public static final String PREFIX_CLI_PATH = "src/test/resources/etc/jbpm-custom-";
     public static final String SELECT_COUNT_FROM_JBOSS_EJB_TIMER = "select count(*) from jboss_ejb_timer";
+    public static final String SELECT_COUNT_FROM_TIMERMAPPINGINFO = "select count(*) from TimerMappingInfo";    
     public static final String ARTIFACT_ID = "cluster-ejb-sample";
     public static final String GROUP_ID = "org.kie.server.testing";
     public static final String VERSION = "1.0.0";
@@ -101,6 +102,7 @@ public class ClusteredEJBTimerSystemTest {
                                         .withPassword("rhpampassword")
                                         .withFileSystemBind("target/postgresql", "/docker-entrypoint-initdb.d",
                                                             BindMode.READ_ONLY)
+                                        .withCommand("-c max_prepared_transactions=10")
                                         .withNetwork(network)
                                         .withNetworkAliases("postgresql11");
 
@@ -115,6 +117,7 @@ public class ClusteredEJBTimerSystemTest {
     
     private static ProcessServicesClient processClient1;
     private static UserTaskServicesClient taskClient2;
+    private static ProcessServicesClient processClient2;
     
     private static HikariDataSource ds;
     
@@ -129,6 +132,7 @@ public class ClusteredEJBTimerSystemTest {
         
         processClient1 = ksClient1.getServicesClient(ProcessServicesClient.class);
         taskClient2 = ksClient2.getServicesClient(UserTaskServicesClient.class);
+        processClient2 = ksClient2.getServicesClient(ProcessServicesClient.class);
         
         createContainer(ksClient1);
         createContainer(ksClient2);
@@ -167,7 +171,7 @@ public class ClusteredEJBTimerSystemTest {
         assertEquals("there shouldn't be any timer at the table",
                      0, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
     }
-
+    
     @Test
     @DisplayName("user starts process in one node but complete task in another before refresh-time and session is still alive (2nd human task waiting)")
     public void completeTaskBeforeRefreshWithAliveSession() throws Exception {
@@ -193,8 +197,6 @@ public class ClusteredEJBTimerSystemTest {
         List<TaskSummary> taskList = findReadyTasks(processInstanceId);
 
         assertEquals(1, taskList.size());
-        
-        abortProcess(ksClient2, processInstanceId);
     }
     
     @Test
@@ -248,6 +250,32 @@ public class ClusteredEJBTimerSystemTest {
         assertEquals("there shouldn't be any timer at the table",
                      0, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
     }
+
+    @Test
+    @DisplayName("user starts process with a timer in a subprocess that it's not launched until task is committed")
+    public void timerIsNotTriggerUntilTaskCommitted() throws Exception {
+    	Long processInstanceId = startProcessInNode2("notif-process");
+        
+        Long taskId = startTaskInNode2(processInstanceId);
+         
+        taskClient2.completeTask(containerId, taskId, DEFAULT_USER, new HashMap<>());
+        
+        logger.info("Completed task {} on kieserver2", taskId);
+        
+        assertEquals("there should be just one timer at the table",
+                1, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
+        
+        assertEquals("there should be just one timer at the timer mapping info table",
+                1, performQuery(SELECT_COUNT_FROM_TIMERMAPPINGINFO).getInt(1));
+        
+        Thread.sleep(2000);
+        
+        assertEquals("there should be just no timer at the table",
+                     0, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
+        
+        assertEquals("there should be just no timer at the timer mapping info table",
+                     0, performQuery(SELECT_COUNT_FROM_TIMERMAPPINGINFO).getInt(1));
+    }
     
     private static void createContainer(KieServicesClient client) {
         ReleaseId releaseId = new ReleaseId(GROUP_ID, ARTIFACT_ID, VERSION);
@@ -286,6 +314,12 @@ public class ClusteredEJBTimerSystemTest {
         return processInstanceId;
     }
     
+    private Long startProcessInNode2(String processName) {
+        Long processInstanceId = processClient2.startProcess(containerId, processName, singletonMap("id", "id1"));
+        assertNotNull(processInstanceId);
+        return processInstanceId;
+    }
+    
     private Long startTaskInNode2(Long processInstanceId) {
         List<TaskSummary> taskList = findReadyTasks(processInstanceId);
 
@@ -308,6 +342,7 @@ public class ClusteredEJBTimerSystemTest {
         assertNotNull(processInstance);
         assertEquals(1, processInstance.getState().intValue());
         processClient1.abortProcessInstance(containerId, processInstanceId);
+        processClient2.abortProcessInstance(containerId, processInstanceId);
     }
     
     private static HikariDataSource getDataSource() {

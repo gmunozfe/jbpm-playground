@@ -10,7 +10,7 @@ COPY etc/kjars/ /etc/kjars/
 RUN mvn --file /etc/kjars/cluster-ejb-sample/pom.xml --batch-mode install -DskipTests
 
 #########################################################
-# Dockerfile that provides the image for KIE Server
+# Dockerfile that provides the image for KIE Server 
 #########################################################
 
 FROM $IMAGE_NAME
@@ -22,10 +22,26 @@ COPY --from=builder /root/.m2 /opt/jboss/.m2
 ENV KIE_SERVER_PROFILE standalone
 
 ENV JAVA_OPTS -Xms256m -Xmx2048m -XX:MetaspaceSize=96M -XX:MaxMetaspaceSize=512m -Djava.net.preferIPv4Stack=true -Dfile.encoding=UTF-8 \
- -Dorg.uberfire.domain=other -Dorg.jbpm.ejb.timer.local.cache=false -Dorg.jbpm.ejb.timer.tx=true -Dorg.kie.controller.ping.alive.timeout=5000000 -Dorg.kie.jbpm.timer.retry.limit=1 -Dorg.kie.jbpm.timer.retry.interval=100
+ -Dorg.uberfire.domain=other -Dorg.kie.optlock.retries=0 -Dorg.jbpm.ejb.timer.local.cache=false -Dorg.jbpm.ejb.timer.tx=true -Dorg.kie.controller.ping.alive.timeout=5000000 -Dorg.kie.jbpm.timer.retry.limit=1 -Dorg.kie.jbpm.timer.retry.interval=100
 
 COPY etc/drivers /etc/drivers/
 ADD etc/jbpm-custom.cli $JBOSS_HOME/bin/jbpm-custom.cli
+
+
+RUN rm $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-services-ejb-timer-7.74.*.jar
+ADD etc/jbpm-services-ejb-timer-7.74.0.Final.jar $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-services-ejb-timer-7.74.0.Final.jar
+
+RUN rm $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-flow-7.74.*.jar
+ADD etc/jbpm-flow-7.74.0.Final.jar $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-flow-7.74.0.Final.jar
+
+RUN rm $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-persistence-jpa-7.74.*.jar
+ADD etc/jbpm-persistence-jpa-7.74.0.Final.jar $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-persistence-jpa-7.74.0.Final.jar
+
+RUN rm $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-runtime-manager-7.74.*.jar
+ADD etc/jbpm-runtime-manager-7.74.0.Final.jar $JBOSS_HOME/standalone/deployments/kie-server.war/WEB-INF/lib/jbpm-runtime-manager-7.74.0.Final.jar
+
+
+
 
 USER root
 

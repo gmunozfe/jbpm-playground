@@ -7,4 +7,13 @@
   <artifactId>tx-ejb-sample</artifactId>
   <version>1.0.0</version>
   <name>tx-ejb-sample</name>
+  
+  <dependencies>
+		<dependency>
+			<groupId>org.jbpm</groupId>
+			<artifactId>jbpm-flow</artifactId>
+			<version>7.74.0.Final</version>
+			<scope>provided</scope>
+		</dependency>
+	</dependencies>
 </project>

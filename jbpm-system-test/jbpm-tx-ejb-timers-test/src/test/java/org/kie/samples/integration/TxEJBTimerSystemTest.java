@@ -16,6 +16,7 @@
 
 package org.kie.samples.integration;
 
+import static java.util.Collections.singletonMap;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -137,7 +138,7 @@ class TxEJBTimerSystemTest {
                 0, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
     }
 
-    @ParameterizedTest
+    /*@ParameterizedTest
     @CsvSource({"timer-fail-subprocess,1", "boundary-subprocess,2", "boundary-gateway-subprocess,1"})
     void testEJBTimerWithRollback(String processId, int expectedTimersAfterRollback) throws InterruptedException, SQLException {
         Long processInstanceId = processClient.startProcess(containerId, processId);
@@ -158,6 +159,31 @@ class TxEJBTimerSystemTest {
         
         assertEquals("there should be "+expectedTimersAfterRollback+" timer at the table after the rollback",
                       expectedTimersAfterRollback, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
+        
+        processClient.abortProcessInstance(containerId, processInstanceId);
+        logger.info("Process aborted " );
+        
+    }*/
+    
+    @ParameterizedTest
+    @CsvSource({"wih-timer-subprocess,0"})
+    void testEJBTimerWithRollback(String processId, int expectedTimersAfterRollback) throws InterruptedException, SQLException {
+        Long processInstanceId = processClient.startProcess(containerId, processId, singletonMap("name", "Pepe"));
+        
+        assertTrue(processInstanceId>0);
+        
+        logger.info("Sending signal");
+        processClient.signal(containerId, "Signal", null);
+        
+        logger.info("Sleeping 3000000 s");
+        Thread.sleep(30000000);
+        
+        assertEquals("there should be "+expectedTimersAfterRollback+" timer at the table after the rollback",
+                      expectedTimersAfterRollback, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(0));
+        
+        processClient.abortProcessInstance(containerId, processInstanceId);
+        logger.info("Process aborted " );
+        
     }
     
     private static void createContainer(KieServicesClient client) {

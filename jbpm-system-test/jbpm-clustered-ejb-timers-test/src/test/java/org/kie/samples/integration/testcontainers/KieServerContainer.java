@@ -39,6 +39,10 @@ public class KieServerContainer extends GenericContainer<KieServerContainer>{
       super( new ImageFromDockerfile()
            .withBuildArg("IMAGE_NAME", args.get("IMAGE_NAME"))
            .withFileFromFile("etc/jbpm-custom.cli", new File("src/test/resources/etc/jbpm-custom-"+nodeName+".cli"))
+           .withFileFromClasspath("etc/jbpm-services-ejb-timer-7.74.0.Final.jar", "etc/jbpm-services-ejb-timer-7.74.0.Final.jar")
+           .withFileFromClasspath("etc/jbpm-runtime-manager-7.74.0.Final.jar", "etc/jbpm-runtime-manager-7.74.0.Final.jar")
+           .withFileFromClasspath("etc/jbpm-persistence-jpa-7.74.0.Final.jar", "etc/jbpm-persistence-jpa-7.74.0.Final.jar")
+           .withFileFromClasspath("etc/jbpm-flow-7.74.0.Final.jar", "etc/jbpm-flow-7.74.0.Final.jar")
            .withFileFromClasspath("etc/kjars", "etc/kjars")
            .withFileFromClasspath("Dockerfile", "etc/Dockerfile")
            .withFileFromFile("etc/drivers/postgresql.jar", new File("target/drivers").listFiles()[0]));
